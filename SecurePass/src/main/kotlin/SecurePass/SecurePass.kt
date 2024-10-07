@@ -1,3 +1,7 @@
+package SecurePass
+
+import Captura.Alerta
+import Captura.Captura
 import com.github.britooo.looca.api.core.Looca
 import org.apache.commons.dbcp2.BasicDataSource
 import org.springframework.jdbc.core.BeanPropertyRowMapper
@@ -15,6 +19,7 @@ class SecurePass {
 
     fun configurar() {
         val datasource = BasicDataSource()
+        datasource.driverClassName = "com.mysql.cj.jdbc.Driver"
         datasource.url = "jdbc:mysql://localhost:3306/securepass?serverTimezone=America/Sao_Paulo"
         datasource.username = "root"
         datasource.password = "#Gf48500284897"
@@ -61,7 +66,7 @@ class SecurePass {
         }
 
         val formattedRegistro = BigDecimal(novoRegistro.registro.toDouble())
-            .setScale(4, RoundingMode.HALF_UP)
+            .setScale(2, RoundingMode.HALF_UP)
 
         val formattedDataRegistro = novoRegistro.dataRegistro.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 

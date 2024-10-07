@@ -1,3 +1,5 @@
+package Captura
+
 import java.time.LocalDateTime
 
 class Captura {
