@@ -12,6 +12,8 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import org.springframework.dao.EmptyResultDataAccessException
 
+data class DispositivoData(val fkNR: Int, val idDispositivo: Int)
+
 class SecurePass {
 
     private val looca = Looca()
@@ -27,12 +29,37 @@ class SecurePass {
         jdbcTemplate = JdbcTemplate(datasource)
     }
 
-    private fun buscarFkDispositivo(fkNR: Int): Int? {
+    fun buscarFkNRAndIdDispositivo(nomeDispositivo: String): DispositivoData? {
+        val sql = """
+            SELECT e.NR, d.idDispositivo 
+            FROM empresa e 
+            JOIN dispositivo d ON e.NR = d.fkNR 
+            WHERE d.nome = ? AND e.stats = 'ativo'
+        """
+        return try {
+            jdbcTemplate.queryForObject(sql,
+                arrayOf(nomeDispositivo),
+                { rs, _ -> DispositivoData(rs.getInt("NR"), rs.getInt("idDispositivo")) })
+        } catch (e: EmptyResultDataAccessException) {
+            null
+        }
+    }
+
+    fun buscarNomeDispositivoAtivo(): String? {
+        val sql = "SELECT nome FROM dispositivo WHERE stats = 'ativo'"
+        return try {
+            jdbcTemplate.queryForObject(sql, String::class.java)
+        } catch (e: EmptyResultDataAccessException) {
+            null
+        }
+    }
+
+    fun buscarFkDispositivo(fkNR: Int): Int? {
         val sql = "SELECT idDispositivo FROM dispositivo WHERE fkNR = ? AND stats = 'ativo'"
         return jdbcTemplate.queryForObject(sql, Int::class.java, fkNR)
     }
 
-    private fun buscarFkComponente(nome: String): Int? {
+    fun buscarFkComponente(nome: String): Int? {
         val sql = "SELECT idComponente FROM componente WHERE nome = ?"
         return try {
             jdbcTemplate.queryForObject(sql, Int::class.java, nome)
@@ -105,7 +132,7 @@ class SecurePass {
         return qtdLinhasAfetadas > 0
     }
 
-    private fun buscarFkCaptura(idCaptura: Int): Int? {
+    fun buscarFkCaptura(idCaptura: Int): Int? {
         val sql = "SELECT idCaptura FROM captura WHERE idCaptura = ?"
         return jdbcTemplate.queryForObject(sql, Int::class.java, idCaptura)
     }

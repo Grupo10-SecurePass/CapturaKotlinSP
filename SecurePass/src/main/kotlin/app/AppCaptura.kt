@@ -8,13 +8,33 @@ open class Main {
         @JvmStatic
         fun main(args: Array<String>) {
             val networkData = SecurePass()
-
             networkData.configurar()
 
-            val fkDispositivo = 1
-            val fkNR = 4826
-            val fkComponenteRecebidos = "RedeRecebida"
-            val fkComponenteEnviados = "RedeEnviada"
+            val nomeDispositivo = networkData.buscarNomeDispositivoAtivo()
+            if (nomeDispositivo == null) {
+                println("Nenhum dispositivo ativo encontrado.")
+                return
+            }
+
+            println("Nome do dispositivo: $nomeDispositivo")
+
+            val dispositivoData = networkData.buscarFkNRAndIdDispositivo(nomeDispositivo)
+
+            if (dispositivoData == null) {
+                println("Dispositivo não encontrado ou inativo: $nomeDispositivo")
+                return
+            }
+
+            val fkNR = dispositivoData.fkNR
+            val fkDispositivo = dispositivoData.idDispositivo
+
+            val fkComponenteRecebidos = networkData.buscarFkComponente("RedeRecebida")
+            val fkComponenteEnviados = networkData.buscarFkComponente("RedeEnviada")
+
+            if (fkComponenteRecebidos == null || fkComponenteEnviados == null) {
+                println("Não foi possível encontrar os componentes de RedeRecebida ou RedeEnviada.")
+                return
+            }
 
             while (true) {
                 val (recebidos, enviados) = networkData.getFormattedNetworkData()
@@ -26,12 +46,11 @@ open class Main {
                 val novoRegistroRecebidos = Captura()
                 novoRegistroRecebidos.setRegistro(recebidos.toFloat())
 
-                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkNR, fkComponenteRecebidos)
+                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkNR, "RedeRecebida")
 
                 if (idCapturaRecebidos != null) {
                     println("Registro de recebidos inserido com sucesso.")
 
-                    // Inserção de alerta se necessário
                     if (recebidos < 1000.0) {
                         val descricaoAlerta =
                             "Alerta: Registro de Download de rede abaixo do esperado: %.2f MB".format(recebidos)
@@ -49,12 +68,11 @@ open class Main {
                 val novoRegistroEnviados = Captura()
                 novoRegistroEnviados.setRegistro(enviados.toFloat())
 
-                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkNR, fkComponenteEnviados)
+                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkNR, "RedeEnviada")
 
                 if (idCapturaEnviados != null) {
                     println("Registro de enviados inserido com sucesso.")
 
-                    // Inserção de alerta se necessário
                     if (enviados < 1000.0) {
                         val descricaoAlerta =
                             "Alerta: Registro de Upload de rede abaixo do esperado: %.2f MB".format(enviados)
