@@ -31,41 +31,27 @@ class SecurePass {
 
     fun buscarFkNRAndIdDispositivo(nomeDispositivo: String): DispositivoData? {
         val sql = """
-            SELECT e.NR, d.idDispositivo 
-            FROM empresa e 
-            JOIN dispositivo d ON e.NR = d.fkNR 
-            WHERE d.nome = ? AND e.stats = 'ativo'
-        """
-        return try {
-            jdbcTemplate.queryForObject(sql,
-                arrayOf(nomeDispositivo),
-                { rs, _ -> DispositivoData(rs.getInt("NR"), rs.getInt("idDispositivo")) })
-        } catch (e: EmptyResultDataAccessException) {
-            null
-        }
-    }
+        SELECT e.NR, d.idDispositivo 
+        FROM empresa e 
+        JOIN dispositivo d ON e.NR = d.fkNR 
+        WHERE d.nome = ? AND e.stats = 'ativo'
+    """
+        val resultados = jdbcTemplate.query(
+            sql,
+            arrayOf(nomeDispositivo)
+        ) { rs, _ -> DispositivoData(rs.getInt("NR"), rs.getInt("idDispositivo")) }
 
-    fun buscarNomeDispositivoAtivo(): String? {
-        val sql = "SELECT nome FROM dispositivo WHERE stats = 'ativo'"
-        return try {
-            jdbcTemplate.queryForObject(sql, String::class.java)
-        } catch (e: EmptyResultDataAccessException) {
-            null
-        }
-    }
-
-    fun buscarFkDispositivo(fkNR: Int): Int? {
-        val sql = "SELECT idDispositivo FROM dispositivo WHERE fkNR = ? AND stats = 'ativo'"
-        return jdbcTemplate.queryForObject(sql, Int::class.java, fkNR)
+        return resultados.firstOrNull()
     }
 
     fun buscarFkComponente(nome: String): Int? {
         val sql = "SELECT idComponente FROM componente WHERE nome = ?"
-        return try {
-            jdbcTemplate.queryForObject(sql, Int::class.java, nome)
-        } catch (e: EmptyResultDataAccessException) {
-            null
-        }
+        val resultados = jdbcTemplate.query(
+            sql,
+            arrayOf(nome)
+        ) { rs, _ -> rs.getInt("idComponente") }
+
+        return resultados.firstOrNull()
     }
 
     fun getFormattedNetworkData(): Pair<Double, Double> {
@@ -78,14 +64,9 @@ class SecurePass {
         return Pair(megabytesRecebidos, megabytesEnviados)
     }
 
-    fun inserir(novoRegistro: Captura, fkNR: Int, fkComponente: String): Int? {
-        val fkDispositivo = buscarFkDispositivo(fkNR)
-        val fkComponenteId = buscarFkComponente(fkComponente)
 
-        if (fkDispositivo == null) {
-            println("Dispositivo não encontrado para o fkNR: $fkNR.")
-            return null
-        }
+    fun inserir(novoRegistro: Captura, idDispositivo: Int, fkNR: Int, fkComponente: String): Int? {
+        val fkComponenteId = buscarFkComponente(fkComponente)
 
         if (fkComponenteId == null) {
             println("Componente não encontrado para o nome: $fkComponente.")
@@ -102,7 +83,7 @@ class SecurePass {
         INSERT INTO captura (fkDispositivo, fkNR, fkComponente, registro, dataRegistro)
         VALUES (?, ?, ?, ?, ?)
         """,
-            fkDispositivo, fkNR, fkComponenteId, formattedRegistro, formattedDataRegistro
+            idDispositivo, fkNR, fkComponenteId, formattedRegistro, formattedDataRegistro
         )
 
         return if (qtdLinhasAfetadas > 0) {
