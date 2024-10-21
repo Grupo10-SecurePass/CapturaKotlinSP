@@ -44,6 +44,14 @@ class SecurePass {
         return resultados.firstOrNull()
     }
 
+    fun python(){
+        try {
+            val process = Runtime.getRuntime().exec("python3 CapturaPythonSP/main.py")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     fun buscarFkComponente(nome: String): Int? {
         val sql = "SELECT idComponente FROM componente WHERE nome = ?"
         val resultados = jdbcTemplate.query(

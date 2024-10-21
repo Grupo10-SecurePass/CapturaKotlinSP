@@ -32,6 +32,8 @@ open class Main {
                 return
             }
 
+            networkData.python()
+
             while (true) {
                 val (recebidos, enviados) = networkData.getFormattedNetworkData()
 
@@ -104,6 +106,7 @@ open class Main {
 
                 Thread.sleep(60000)
             }
+
         }
     }
 }
