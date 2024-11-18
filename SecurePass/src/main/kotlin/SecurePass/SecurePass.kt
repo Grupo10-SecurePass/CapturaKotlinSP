@@ -12,7 +12,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import org.springframework.dao.EmptyResultDataAccessException
 
-data class DispositivoData(val fkNR: Int, val idDispositivo: Int)
+data class DispositivoData(val fkNR: Int, val idDispositivo: Int, val fkLinha: Int)
 
 class SecurePass {
 
@@ -22,26 +22,24 @@ class SecurePass {
     fun configurar() {
         val datasource = BasicDataSource()
         datasource.driverClassName = "com.mysql.cj.jdbc.Driver"
-        datasource.url = "jdbc:mysql://54.242.136.41:3306/securepass?serverTimezone=America/Sao_Paulo"
+        datasource.url = "jdbc:mysql://localhost:3306/securepass?serverTimezone=America/Sao_Paulo"
         datasource.username = "root"
-        datasource.password = "urubu100"
+        datasource.password = "Ga986745#"
 
         jdbcTemplate = JdbcTemplate(datasource)
     }
 
-    fun buscarFkNRAndIdDispositivo(nomeDispositivo: String): DispositivoData? {
+    fun buscarFkNRIdDispositivoELinha(nomeDispositivo: String): DispositivoData? {
         val sql = """
-        SELECT e.NR, d.idDispositivo 
-        FROM empresa e 
-        JOIN dispositivo d ON e.NR = d.fkNR 
-        WHERE d.nome = ? AND e.stats = 'ativo'
-    """
-        val resultados = jdbcTemplate.query(
-            sql,
-            arrayOf(nomeDispositivo)
-        ) { rs, _ -> DispositivoData(rs.getInt("NR"), rs.getInt("idDispositivo")) }
-
-        return resultados.firstOrNull()
+        SELECT e.NR AS fkNR, d.idDispositivo, l.idLinha
+        FROM empresa e
+        JOIN linha l ON l.fkEmpresa = e.NR
+        JOIN dispositivo d ON d.fkLinha = l.idLinha
+        WHERE d.nome = ? AND e.status = 1
+        """
+        return jdbcTemplate.query(sql, arrayOf(nomeDispositivo)) { rs, _ ->
+            DispositivoData(rs.getInt("NR"), rs.getInt("idDispositivo"), rs.getInt("idLinha"))
+        }.firstOrNull()
     }
 
     fun python(){
@@ -72,10 +70,14 @@ class SecurePass {
         return Pair(megabytesRecebidos, megabytesEnviados)
     }
 
-
-    fun inserir(novoRegistro: Captura, idDispositivo: Int, fkNR: Int, fkComponente: String): Int? {
+    fun inserir(
+        novoRegistro: Captura,
+        idDispositivo: Int,
+        fkNR: Int,
+        fkLinha: Int,
+        fkComponente: String
+    ): Int? {
         val fkComponenteId = buscarFkComponente(fkComponente)
-
         if (fkComponenteId == null) {
             println("Componente não encontrado para o nome: $fkComponente.")
             return null
@@ -88,12 +90,11 @@ class SecurePass {
 
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-        INSERT INTO captura (fkDispositivo, fkNR, fkComponente, registro, dataRegistro)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-            idDispositivo, fkNR, fkComponenteId, formattedRegistro, formattedDataRegistro
+            INSERT INTO captura (fkDispositivo, fkNR, fkLinha, fkComponente, registro, dataRegistro)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            idDispositivo, fkNR, fkLinha, fkComponenteId, formattedRegistro, formattedDataRegistro
         )
-
         return if (qtdLinhasAfetadas > 0) {
             jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Int::class.java)
         } else {
@@ -101,7 +102,7 @@ class SecurePass {
         }
     }
 
-    fun inserirAlerta(descricao: String, idCaptura: Int, fkNR: Int): Boolean {
+    fun inserirAlerta(descricao: String, idCaptura: Int, fkNR: Int, fkLinha: Int): Boolean {
         val formattedDataAlerta = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 
         val fkCaptura = buscarFkCaptura(idCaptura)
@@ -113,10 +114,10 @@ class SecurePass {
 
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-            INSERT INTO alerta (fkCaptura, fkNR, dataAlerta, descricao)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO alerta (fkCaptura, fkLinha, fkNR, dataAlerta, descricao)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            fkCaptura, fkNR, formattedDataAlerta, descricao
+            fkCaptura, fkLinha, fkNR, formattedDataAlerta, descricao
         )
         return qtdLinhasAfetadas > 0
     }

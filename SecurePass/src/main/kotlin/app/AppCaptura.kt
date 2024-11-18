@@ -15,14 +15,14 @@ open class Main {
             val nomeDispositivo = InetAddress.getLocalHost().hostName
             println("Hostname: $nomeDispositivo")
 
-            val dispositivoData = networkData.buscarFkNRAndIdDispositivo(nomeDispositivo)
+            val dispositivoData = networkData.buscarFkNRIdDispositivoELinha(nomeDispositivo)
 
             if (dispositivoData == null) {
                 println("Dispositivo não encontrado ou inativo: $nomeDispositivo")
                 return
             }
 
-            val (fkNR, fkDispositivo) = dispositivoData
+            val (fkNR, fkDispositivo, fkLinha) = dispositivoData
 
             val fkComponenteRecebidos = networkData.buscarFkComponente("RedeRecebida")
             val fkComponenteEnviados = networkData.buscarFkComponente("RedeEnviada")
@@ -44,14 +44,14 @@ open class Main {
                 val novoRegistroRecebidos = Captura()
                 novoRegistroRecebidos.setRegistro(recebidos.toFloat())
 
-                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkDispositivo, fkNR, "RedeRecebida")
+                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkDispositivo, fkNR, fkLinha, "RedeRecebida")
 
                 if (idCapturaRecebidos != null) {
                     println("Registro de recebidos inserido com sucesso.")
 
                     if (recebidos < 1000.0) {
                         val descricaoAlerta = "Alerta: Registro de Download de rede abaixo do esperado: %.2f MB".format(recebidos)
-                        if (networkData.inserirAlerta(descricaoAlerta, idCapturaRecebidos, fkNR)) {
+                        if (networkData.inserirAlerta(descricaoAlerta, idCapturaRecebidos, fkNR, fkLinha)) {
                             println("Alerta inserido: $descricaoAlerta")
                         } else {
                             println("Falha ao inserir alerta para recebidos.")
@@ -65,14 +65,14 @@ open class Main {
                 val novoRegistroEnviados = Captura()
                 novoRegistroEnviados.setRegistro(enviados.toFloat())
 
-                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkDispositivo, fkNR, "RedeEnviada")
+                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkDispositivo, fkNR, fkLinha, "RedeEnviada")
 
                 if (idCapturaEnviados != null) {
                     println("Registro de enviados inserido com sucesso.")
 
                     if (enviados < 1000.0) {
                         val descricaoAlerta = "Alerta: Registro de Upload de rede abaixo do esperado: %.2f MB".format(enviados)
-                        if (networkData.inserirAlerta(descricaoAlerta, idCapturaEnviados, fkNR)) {
+                        if (networkData.inserirAlerta(descricaoAlerta, idCapturaEnviados, fkNR, fkLinha)) {
                             println("Alerta inserido: $descricaoAlerta")
                         } else {
                             println("Falha ao inserir alerta para enviados.")
