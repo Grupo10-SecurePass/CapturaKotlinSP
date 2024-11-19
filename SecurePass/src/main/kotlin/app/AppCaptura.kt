@@ -3,6 +3,7 @@ package app
 import Captura.Captura
 import java.net.InetAddress
 import SecurePass.SecurePass
+import java.time.LocalDateTime
 
 open class Main {
     companion object {
@@ -14,14 +15,14 @@ open class Main {
             val nomeDispositivo = InetAddress.getLocalHost().hostName
             println("Hostname: $nomeDispositivo")
 
-            val dispositivoData = networkData.buscarFkNRIdDispositivoELinha(nomeDispositivo)
+            val dispositivoData = networkData.buscarFkNRAndIdDispositivo(nomeDispositivo)
 
             if (dispositivoData == null) {
                 println("Dispositivo não encontrado ou inativo: $nomeDispositivo")
                 return
             }
 
-            val (fkDispositivo, idDispositivo) = dispositivoData
+            val (fkLinha, fkDispositivo) = dispositivoData
 
             val fkComponenteRecebidos = networkData.buscarFkComponente("RedeRecebida")
             val fkComponenteEnviados = networkData.buscarFkComponente("RedeEnviada")
@@ -39,20 +40,20 @@ open class Main {
                 println("Mega Bytes Recebidos: %.2f MB".format(recebidos))
                 println("Mega Bytes Enviados: %.2f MB".format(enviados))
 
-                // Inserção e análise para "RedeRecebida"
+                // Inserindo dados de Rede Recebida
                 val novoRegistroRecebidos = Captura()
                 novoRegistroRecebidos.setRegistro(recebidos.toFloat())
 
-                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkDispositivo, idDispositivo, "RedeRecebida")
+                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkDispositivo, fkLinha, "RedeRecebida")
 
                 if (idCapturaRecebidos != null) {
                     println("Registro de recebidos inserido com sucesso.")
 
-                    val limitesRecebidos = networkData.buscarLimites(fkComponenteRecebidos, fkDispositivo, idDispositivo)
+                    val limitesRecebidos = networkData.buscarLimites(fkComponenteRecebidos, fkDispositivo, fkLinha)
                     for ((tipo, limite) in limitesRecebidos) {
                         if ((tipo == "acima" && recebidos > limite) || (tipo == "abaixo" && recebidos < limite)) {
                             val descricaoAlerta = "Alerta: RedeRecebida $tipo do limite ($limite): Valor registrado: %.2f MB".format(recebidos)
-                            if (networkData.inserirAlerta(descricaoAlerta, idCapturaRecebidos, idDispositivo, fkDispositivo, fkComponenteRecebidos)) {
+                            if (networkData.inserirAlerta(descricaoAlerta, idCapturaRecebidos, fkLinha, fkComponenteRecebidos, fkDispositivo)) {
                                 println("Alerta inserido: $descricaoAlerta")
                             } else {
                                 println("Falha ao inserir alerta para recebidos.")
@@ -63,20 +64,20 @@ open class Main {
                     println("Falha ao inserir registro de recebidos.")
                 }
 
-                // Inserção e análise para "RedeEnviada"
+                // Inserindo dados de Rede Enviada
                 val novoRegistroEnviados = Captura()
                 novoRegistroEnviados.setRegistro(enviados.toFloat())
 
-                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkDispositivo, idDispositivo, "RedeEnviada")
+                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkDispositivo, fkLinha, "RedeEnviada")
 
                 if (idCapturaEnviados != null) {
                     println("Registro de enviados inserido com sucesso.")
 
-                    val limitesEnviados = networkData.buscarLimites(fkComponenteEnviados, fkDispositivo, idDispositivo)
+                    val limitesEnviados = networkData.buscarLimites(fkComponenteEnviados, fkDispositivo, fkLinha)
                     for ((tipo, limite) in limitesEnviados) {
                         if ((tipo == "acima" && enviados > limite) || (tipo == "abaixo" && enviados < limite)) {
                             val descricaoAlerta = "Alerta: RedeEnviada $tipo do limite ($limite): Valor registrado: %.2f MB".format(enviados)
-                            if (networkData.inserirAlerta(descricaoAlerta, idCapturaEnviados, idDispositivo, fkDispositivo, fkComponenteRecebidos)) {
+                            if (networkData.inserirAlerta(descricaoAlerta, idCapturaEnviados, fkLinha, fkComponenteEnviados, fkDispositivo)) {
                                 println("Alerta inserido: $descricaoAlerta")
                             } else {
                                 println("Falha ao inserir alerta para enviados.")
@@ -94,24 +95,24 @@ open class Main {
                 println("-------------------------------------------------")
                 val capturas = networkData.listarCapturas()
                 capturas.forEach { captura ->
-                    println("| ${captura.idCaptura.toString().padEnd(8)} | ${captura.dataRegistro.toString().padEnd(18)} | ${captura.registro.toString().padEnd(12)} MB |")
+                    println("| ${captura.idCaptura.toString().padEnd(8)} | ${captura.dataRegistro.toString().padEnd(18)} | ${captura.registro.toString().padEnd(12)} MB | Linha: ${captura.fkLinha}")
                 }
                 println("-------------------------------------------------\n")
 
                 // Listar todos os alertas na tabela alerta
                 println("--- Listagem de Alertas da Tabela Alerta ---")
                 println("-------------------------------------------------------------------------------------------------------------------")
-                println("| ID Alerta | Captura ID | Data                | Descricao                                                        |")
+                println("| ID Alerta | Captura ID | Data                | Descrição                                                        |")
                 println("-------------------------------------------------------------------------------------------------------------------")
                 val alertas = networkData.listarAlertas()
                 alertas.forEach { alerta ->
-                    println("| ${alerta.idAlerta.toString().padEnd(10)} | ${alerta.fkCaptura.toString().padEnd(10)} | ${alerta.dataAlerta.toString().padEnd(18)} | ${alerta.descricao.toString().padEnd(30)} |")
+                    println("| ${alerta.idAlerta.toString().padEnd(10)} | ${alerta.fkCaptura.toString().padEnd(10)} | ${alerta.dataAlerta.toString().padEnd(18)} | ${alerta.descricao.toString().padEnd(30)} | Linha: ${alerta.fkLinha}")
                 }
                 println("-------------------------------------------------------------------------------------------------------------------\n")
 
-                Thread.sleep(60000)
-            }
 
+                Thread.sleep(30000)
+            }
         }
     }
 }

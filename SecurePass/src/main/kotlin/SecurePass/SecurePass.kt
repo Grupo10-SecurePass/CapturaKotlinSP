@@ -12,7 +12,15 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import org.springframework.dao.EmptyResultDataAccessException
 
-data class DispositivoData(val fkNR: Int, val idDispositivo: Int, val fkLinha: Int)
+data class DispositivoData(val fkLinha: Int, val idDispositivo: Int)
+
+data class Alerta(
+    val idAlerta: Int,
+    val fkCaptura: Int,
+    val dataAlerta: LocalDateTime,
+    val descricao: String,
+    val fkLinha: Int
+)
 
 class SecurePass {
 
@@ -24,20 +32,26 @@ class SecurePass {
         datasource.driverClassName = "com.mysql.cj.jdbc.Driver"
         datasource.url = "jdbc:mysql://localhost:3306/securepass?serverTimezone=America/Sao_Paulo"
         datasource.username = "root"
-        datasource.password = "Ga986745#"
+        datasource.password = "#Gf48500284897"
 
         jdbcTemplate = JdbcTemplate(datasource)
     }
 
-    fun buscarFkNRIdDispositivoELinha(nomeDispositivo: String): DispositivoData? {
+    fun buscarFkNRAndIdDispositivo(nomeDispositivo: String): DispositivoData? {
         val sql = """
-        SELECT l.fkEmpresa as fkNR, d.idDispositivo, l.idLinha FROM linha l 
+        SELECT 
+        l.idLinha, d.idDispositivo 
+        FROM linha l 
         JOIN dispositivo d ON d.fkLinha = l.idLinha 
-        WHERE d.nome = ? AND d.status = 1
-        """
-        return jdbcTemplate.query(sql, arrayOf(nomeDispositivo)) { rs, _ ->
-            DispositivoData(rs.getInt("fkNR"), rs.getInt("idDispositivo"), rs.getInt("idLinha"))
-        }.firstOrNull()
+        WHERE d.nome = ? 
+        AND d.status = 1;
+    """
+        val resultados = jdbcTemplate.query(
+            sql,
+            arrayOf(nomeDispositivo)
+        ) { rs, _ -> DispositivoData(rs.getInt("idLinha"), rs.getInt("idDispositivo")) }
+
+        return resultados.firstOrNull()
     }
 
     fun python(){
@@ -68,13 +82,10 @@ class SecurePass {
         return Pair(megabytesRecebidos, megabytesEnviados)
     }
 
-    fun inserir(
-        novoRegistro: Captura,
-        idDispositivo: Int,
-        fkLinha: Int,
-        fkComponente: String
-    ): Int? {
+
+    fun inserir(novoRegistro: Captura, idDispositivo: Int, fkLinha: Int, fkComponente: String): Int? {
         val fkComponenteId = buscarFkComponente(fkComponente)
+
         if (fkComponenteId == null) {
             println("Componente não encontrado para o nome: $fkComponente.")
             return null
@@ -87,11 +98,12 @@ class SecurePass {
 
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-            INSERT INTO captura (fkDispositivo, fkLinha, fkComponente, registro, dataRegistro)
-            VALUES (?, ?, ?, ?, ?)
-            """,
+        INSERT INTO captura (fkDispositivo, fkLinha, fkComponente, registro, dataRegistro)
+        VALUES (?, ?, ?, ?, ?)
+        """,
             idDispositivo, fkLinha, fkComponenteId, formattedRegistro, formattedDataRegistro
         )
+
         return if (qtdLinhasAfetadas > 0) {
             jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Int::class.java)
         } else {
@@ -122,13 +134,14 @@ class SecurePass {
 
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-        INSERT INTO alerta (descricao, dataAlerta, visualizacao, fkComponente, fkDispositivo, fkLinha, fkCaptura)
-        VALUES (?, ?, 0, ?, ?, ?, ?)
+         INSERT INTO alerta (descricao, dataAlerta, visualizacao, fkComponente, fkDispositivo, fkLinha, fkCaptura)
+            VALUES (?, ?, 0, ?, ?, ?, ?)
         """,
             descricao, formattedDataAlerta, fkComponente, fkDispositivo, fkLinha, fkCaptura
         )
         return qtdLinhasAfetadas > 0
     }
+
 
     fun buscarFkCaptura(idCaptura: Int): Int? {
         val sql = "SELECT idCaptura FROM captura WHERE idCaptura = ?"
@@ -137,15 +150,15 @@ class SecurePass {
 
     fun listarCapturas(): List<Captura> {
         return jdbcTemplate.query(
-            "SELECT * FROM captura",
+            "SELECT * FROM captura ORDER BY dataRegistro DESC LIMIT 15",
             BeanPropertyRowMapper(Captura::class.java)
         )
     }
-
     fun listarAlertas(): List<Alerta> {
         return jdbcTemplate.query(
-            "SELECT * FROM alerta",
+            "SELECT idAlerta, fkCaptura, dataAlerta, descricao, fkLinha FROM alerta ORDER BY dataAlerta DESC LIMIT 15;",
             BeanPropertyRowMapper(Alerta::class.java)
         )
     }
+
 }
