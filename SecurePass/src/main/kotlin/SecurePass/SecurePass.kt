@@ -31,14 +31,12 @@ class SecurePass {
 
     fun buscarFkNRIdDispositivoELinha(nomeDispositivo: String): DispositivoData? {
         val sql = """
-        SELECT e.NR AS fkNR, d.idDispositivo, l.idLinha
-        FROM empresa e
-        JOIN linha l ON l.fkEmpresa = e.NR
-        JOIN dispositivo d ON d.fkLinha = l.idLinha
-        WHERE d.nome = ? AND e.status = 1
+        SELECT l.fkEmpresa as fkNR, d.idDispositivo, l.idLinha FROM linha l 
+        JOIN dispositivo d ON d.fkLinha = l.idLinha 
+        WHERE d.nome = ? AND d.status = 1
         """
         return jdbcTemplate.query(sql, arrayOf(nomeDispositivo)) { rs, _ ->
-            DispositivoData(rs.getInt("NR"), rs.getInt("idDispositivo"), rs.getInt("idLinha"))
+            DispositivoData(rs.getInt("fkNR"), rs.getInt("idDispositivo"), rs.getInt("idLinha"))
         }.firstOrNull()
     }
 
@@ -73,7 +71,6 @@ class SecurePass {
     fun inserir(
         novoRegistro: Captura,
         idDispositivo: Int,
-        fkNR: Int,
         fkLinha: Int,
         fkComponente: String
     ): Int? {
@@ -90,10 +87,10 @@ class SecurePass {
 
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-            INSERT INTO captura (fkDispositivo, fkNR, fkLinha, fkComponente, registro, dataRegistro)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO captura (fkDispositivo, fkLinha, fkComponente, registro, dataRegistro)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            idDispositivo, fkNR, fkLinha, fkComponenteId, formattedRegistro, formattedDataRegistro
+            idDispositivo, fkLinha, fkComponenteId, formattedRegistro, formattedDataRegistro
         )
         return if (qtdLinhasAfetadas > 0) {
             jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Int::class.java)
@@ -102,7 +99,18 @@ class SecurePass {
         }
     }
 
-    fun inserirAlerta(descricao: String, idCaptura: Int, fkNR: Int, fkLinha: Int): Boolean {
+    fun buscarLimites(fkComponente: Int, fkDispositivo: Int, fkLinha: Int): List<Pair<String, Float>> {
+        val sql = """
+        SELECT tipo, valor 
+        FROM limite 
+        WHERE fkComponente = ? AND fkDispositivo = ? AND fkLinha = ?
+    """
+        return jdbcTemplate.query(sql, arrayOf(fkComponente, fkDispositivo, fkLinha)) { rs, _ ->
+            Pair(rs.getString("tipo"), rs.getFloat("valor"))
+        }
+    }
+
+    fun inserirAlerta(descricao: String, idCaptura: Int, fkLinha: Int, fkComponente: Int, fkDispositivo: Int): Boolean {
         val formattedDataAlerta = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 
         val fkCaptura = buscarFkCaptura(idCaptura)
@@ -114,10 +122,10 @@ class SecurePass {
 
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-            INSERT INTO alerta (fkCaptura, fkLinha, fkNR, dataAlerta, descricao)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            fkCaptura, fkLinha, fkNR, formattedDataAlerta, descricao
+        INSERT INTO alerta (descricao, dataAlerta, visualizacao, fkComponente, fkDispositivo, fkLinha, fkCaptura)
+        VALUES (?, ?, 0, ?, ?, ?, ?)
+        """,
+            descricao, formattedDataAlerta, fkComponente, fkDispositivo, fkLinha, fkCaptura
         )
         return qtdLinhasAfetadas > 0
     }

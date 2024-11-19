@@ -3,7 +3,6 @@ package app
 import Captura.Captura
 import java.net.InetAddress
 import SecurePass.SecurePass
-import java.time.LocalDateTime
 
 open class Main {
     companion object {
@@ -22,7 +21,7 @@ open class Main {
                 return
             }
 
-            val (fkNR, fkDispositivo, fkLinha) = dispositivoData
+            val (fkDispositivo, idDispositivo) = dispositivoData
 
             val fkComponenteRecebidos = networkData.buscarFkComponente("RedeRecebida")
             val fkComponenteEnviados = networkData.buscarFkComponente("RedeEnviada")
@@ -40,42 +39,48 @@ open class Main {
                 println("Mega Bytes Recebidos: %.2f MB".format(recebidos))
                 println("Mega Bytes Enviados: %.2f MB".format(enviados))
 
-
+                // Inserção e análise para "RedeRecebida"
                 val novoRegistroRecebidos = Captura()
                 novoRegistroRecebidos.setRegistro(recebidos.toFloat())
 
-                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkDispositivo, fkNR, fkLinha, "RedeRecebida")
+                val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkDispositivo, idDispositivo, "RedeRecebida")
 
                 if (idCapturaRecebidos != null) {
                     println("Registro de recebidos inserido com sucesso.")
 
-                    if (recebidos < 1000.0) {
-                        val descricaoAlerta = "Alerta: Registro de Download de rede abaixo do esperado: %.2f MB".format(recebidos)
-                        if (networkData.inserirAlerta(descricaoAlerta, idCapturaRecebidos, fkNR, fkLinha)) {
-                            println("Alerta inserido: $descricaoAlerta")
-                        } else {
-                            println("Falha ao inserir alerta para recebidos.")
+                    val limitesRecebidos = networkData.buscarLimites(fkComponenteRecebidos, fkDispositivo, idDispositivo)
+                    for ((tipo, limite) in limitesRecebidos) {
+                        if ((tipo == "acima" && recebidos > limite) || (tipo == "abaixo" && recebidos < limite)) {
+                            val descricaoAlerta = "Alerta: RedeRecebida $tipo do limite ($limite): Valor registrado: %.2f MB".format(recebidos)
+                            if (networkData.inserirAlerta(descricaoAlerta, idCapturaRecebidos, idDispositivo, fkDispositivo, fkComponenteRecebidos)) {
+                                println("Alerta inserido: $descricaoAlerta")
+                            } else {
+                                println("Falha ao inserir alerta para recebidos.")
+                            }
                         }
                     }
                 } else {
                     println("Falha ao inserir registro de recebidos.")
                 }
 
-
+                // Inserção e análise para "RedeEnviada"
                 val novoRegistroEnviados = Captura()
                 novoRegistroEnviados.setRegistro(enviados.toFloat())
 
-                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkDispositivo, fkNR, fkLinha, "RedeEnviada")
+                val idCapturaEnviados = networkData.inserir(novoRegistroEnviados, fkDispositivo, idDispositivo, "RedeEnviada")
 
                 if (idCapturaEnviados != null) {
                     println("Registro de enviados inserido com sucesso.")
 
-                    if (enviados < 1000.0) {
-                        val descricaoAlerta = "Alerta: Registro de Upload de rede abaixo do esperado: %.2f MB".format(enviados)
-                        if (networkData.inserirAlerta(descricaoAlerta, idCapturaEnviados, fkNR, fkLinha)) {
-                            println("Alerta inserido: $descricaoAlerta")
-                        } else {
-                            println("Falha ao inserir alerta para enviados.")
+                    val limitesEnviados = networkData.buscarLimites(fkComponenteEnviados, fkDispositivo, idDispositivo)
+                    for ((tipo, limite) in limitesEnviados) {
+                        if ((tipo == "acima" && enviados > limite) || (tipo == "abaixo" && enviados < limite)) {
+                            val descricaoAlerta = "Alerta: RedeEnviada $tipo do limite ($limite): Valor registrado: %.2f MB".format(enviados)
+                            if (networkData.inserirAlerta(descricaoAlerta, idCapturaEnviados, idDispositivo, fkDispositivo, fkComponenteRecebidos)) {
+                                println("Alerta inserido: $descricaoAlerta")
+                            } else {
+                                println("Falha ao inserir alerta para enviados.")
+                            }
                         }
                     }
                 } else {
@@ -96,7 +101,7 @@ open class Main {
                 // Listar todos os alertas na tabela alerta
                 println("--- Listagem de Alertas da Tabela Alerta ---")
                 println("-------------------------------------------------------------------------------------------------------------------")
-                println("| ID Alerta | Captura ID | Data                | Descrição                                                        |")
+                println("| ID Alerta | Captura ID | Data                | Descricao                                                        |")
                 println("-------------------------------------------------------------------------------------------------------------------")
                 val alertas = networkData.listarAlertas()
                 alertas.forEach { alerta ->
