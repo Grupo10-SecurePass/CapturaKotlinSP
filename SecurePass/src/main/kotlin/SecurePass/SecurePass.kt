@@ -10,23 +10,15 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import org.springframework.dao.EmptyResultDataAccessException
 
 data class DispositivoData(val fkLinha: Int, val idDispositivo: Int)
-
-data class Alerta(
-    val idAlerta: Int,
-    val fkCaptura: Int,
-    val dataAlerta: LocalDateTime,
-    val descricao: String,
-    val fkLinha: Int
-)
 
 class SecurePass {
 
     private val looca = Looca()
     lateinit var jdbcTemplate: JdbcTemplate
 
+    // Configuração do banco de dados
     fun configurar() {
         val datasource = BasicDataSource()
         datasource.driverClassName = "com.mysql.cj.jdbc.Driver"
@@ -37,41 +29,42 @@ class SecurePass {
         jdbcTemplate = JdbcTemplate(datasource)
     }
 
+    // Busca ID de linha e dispositivo com base no nome do dispositivo
     fun buscarFkNRAndIdDispositivo(nomeDispositivo: String): DispositivoData? {
         val sql = """
-        SELECT 
-        l.idLinha, d.idDispositivo 
-        FROM linha l 
-        JOIN dispositivo d ON d.fkLinha = l.idLinha 
-        WHERE d.nome = ? 
-        AND d.status = 1;
-    """
-        val resultados = jdbcTemplate.query(
+            SELECT l.idLinha, d.idDispositivo 
+            FROM linha l 
+            JOIN dispositivo d ON d.fkLinha = l.idLinha 
+            WHERE d.nome = ? 
+              AND d.status = 1;
+        """
+        return jdbcTemplate.query(
             sql,
             arrayOf(nomeDispositivo)
         ) { rs, _ -> DispositivoData(rs.getInt("idLinha"), rs.getInt("idDispositivo")) }
-
-        return resultados.firstOrNull()
+            .firstOrNull()
     }
 
-    fun python(){
+    // Método para executar um script Python
+    fun python() {
         try {
-            val process = Runtime.getRuntime().exec("python3 CapturaPythonSP/main.py")
+            Runtime.getRuntime().exec("python3 CapturaPythonSP/main.py")
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
+    // Busca o ID do componente pelo nome
     fun buscarFkComponente(nome: String): Int? {
         val sql = "SELECT idComponente FROM componente WHERE nome = ?"
-        val resultados = jdbcTemplate.query(
+        return jdbcTemplate.query(
             sql,
             arrayOf(nome)
         ) { rs, _ -> rs.getInt("idComponente") }
-
-        return resultados.firstOrNull()
+            .firstOrNull()
     }
 
+    // Retorna os dados de rede formatados em megabytes
     fun getFormattedNetworkData(): Pair<Double, Double> {
         val bytesRecebidos = looca.rede.grupoDeInterfaces.interfaces[0].bytesRecebidos
         val bytesEnviados = looca.rede.grupoDeInterfaces.interfaces[0].bytesEnviados
@@ -82,11 +75,9 @@ class SecurePass {
         return Pair(megabytesRecebidos, megabytesEnviados)
     }
 
-
+    // Inserção de registro na tabela `captura`
     fun inserir(novoRegistro: Captura, idDispositivo: Int, fkLinha: Int, fkComponente: String): Int? {
-        val fkComponenteId = buscarFkComponente(fkComponente)
-
-        if (fkComponenteId == null) {
+        val fkComponenteId = buscarFkComponente(fkComponente) ?: run {
             println("Componente não encontrado para o nome: $fkComponente.")
             return null
         }
@@ -98,9 +89,9 @@ class SecurePass {
 
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-        INSERT INTO captura (fkDispositivo, fkLinha, fkComponente, registro, dataRegistro)
-        VALUES (?, ?, ?, ?, ?)
-        """,
+            INSERT INTO captura (fkDispositivo, fkLinha, fkComponente, registro, dataRegistro)
+            VALUES (?, ?, ?, ?, ?)
+            """,
             idDispositivo, fkLinha, fkComponenteId, formattedRegistro, formattedDataRegistro
         )
 
@@ -111,54 +102,72 @@ class SecurePass {
         }
     }
 
+    // Busca limites associados a um componente, dispositivo e linha
     fun buscarLimites(fkComponente: Int, fkDispositivo: Int, fkLinha: Int): List<Pair<String, Float>> {
         val sql = """
-        SELECT tipo, valor 
-        FROM limite 
-        WHERE fkComponente = ? AND fkDispositivo = ? AND fkLinha = ?
-    """
+            SELECT tipo, valor 
+            FROM limite 
+            WHERE fkComponente = ? AND fkDispositivo = ? AND fkLinha = ?
+        """
         return jdbcTemplate.query(sql, arrayOf(fkComponente, fkDispositivo, fkLinha)) { rs, _ ->
             Pair(rs.getString("tipo"), rs.getFloat("valor"))
         }
     }
 
+    // Inserção de alerta na tabela `alerta`
     fun inserirAlerta(descricao: String, idCaptura: Int, fkLinha: Int, fkComponente: Int, fkDispositivo: Int): Boolean {
         val formattedDataAlerta = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 
-        val fkCaptura = buscarFkCaptura(idCaptura)
-
-        if (fkCaptura == null) {
-            println("Não foi possível encontrar a FK para o alerta.")
-            return false
-        }
-
         val qtdLinhasAfetadas = jdbcTemplate.update(
             """
-         INSERT INTO alerta (descricao, dataAlerta, visualizacao, fkComponente, fkDispositivo, fkLinha, fkCaptura)
+            INSERT INTO alerta (descricao, dataAlerta, visualizacao, fkComponente, fkDispositivo, fkLinha, fkCaptura)
             VALUES (?, ?, 0, ?, ?, ?, ?)
-        """,
-            descricao, formattedDataAlerta, fkComponente, fkDispositivo, fkLinha, fkCaptura
+            """,
+            descricao, formattedDataAlerta, fkComponente, fkDispositivo, fkLinha, idCaptura
         )
         return qtdLinhasAfetadas > 0
     }
 
-
-    fun buscarFkCaptura(idCaptura: Int): Int? {
-        val sql = "SELECT idCaptura FROM captura WHERE idCaptura = ?"
-        return jdbcTemplate.queryForObject(sql, Int::class.java, idCaptura)
-    }
-
     fun listarCapturas(): List<Captura> {
-        return jdbcTemplate.query(
-            "SELECT * FROM captura ORDER BY dataRegistro DESC LIMIT 15",
-            BeanPropertyRowMapper(Captura::class.java)
-        )
+        val sql = "SELECT * FROM captura WHERE TIME(dataRegistro) = TIME(NOW()) ORDER BY dataRegistro DESC;"
+        return jdbcTemplate.query(sql, BeanPropertyRowMapper(Captura::class.java))
     }
-    fun listarAlertas(): List<Alerta> {
+
+    fun listarAlertas(idDispositivo: Int): List<Alerta> {
+        val sql = """
+        SELECT 
+        idAlerta, 
+        fkCaptura, 
+        dataAlerta, 
+        descricao, 
+        fkLinha, 
+        fkComponente, 
+        fkDispositivo, 
+        visualizacao 
+        FROM 
+        alerta 
+        WHERE 
+        fkDispositivo = ? 
+        AND visualizacao = 0
+        AND TIME(dataAlerta) = TIME(NOW())
+        ORDER BY 
+        dataAlerta DESC;
+    """
         return jdbcTemplate.query(
-            "SELECT idAlerta, fkCaptura, dataAlerta, descricao, fkLinha FROM alerta ORDER BY dataAlerta DESC LIMIT 15;",
-            BeanPropertyRowMapper(Alerta::class.java)
-        )
+            sql,
+            arrayOf(idDispositivo)
+        ) { rs, _ ->
+            Alerta().apply {
+                idAlerta = rs.getInt("idAlerta")
+                fkCaptura = rs.getInt("fkCaptura")
+                fkLinha = rs.getInt("fkLinha")
+                fkComponente = rs.getInt("fkComponente")
+                fkDispositivo = rs.getInt("fkDispositivo")
+                dataAlerta = rs.getTimestamp("dataAlerta").toLocalDateTime()
+                descricao = rs.getString("descricao")
+                visualizacao = rs.getBoolean("visualizacao")
+            }
+        }
     }
 
 }

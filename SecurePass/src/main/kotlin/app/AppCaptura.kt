@@ -3,12 +3,19 @@ package app
 import Captura.Captura
 import java.net.InetAddress
 import SecurePass.SecurePass
-import java.time.LocalDateTime
+import org.json.JSONObject
+import slack.Slack
+import java.text.SimpleDateFormat
+import java.util.Date
 
 open class Main {
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
+
+            // Link do Slack precisa ser colocado na val abaixo
+            val slack = Slack("")
+
             val networkData = SecurePass()
             networkData.configurar()
 
@@ -52,7 +59,7 @@ open class Main {
                     val limitesRecebidos = networkData.buscarLimites(fkComponenteRecebidos, fkDispositivo, fkLinha)
                     for ((tipo, limite) in limitesRecebidos) {
                         if ((tipo == "acima" && recebidos > limite) || (tipo == "abaixo" && recebidos < limite)) {
-                            val descricaoAlerta = "Alerta: RedeRecebida $tipo do limite ($limite): Valor registrado: %.2f MB".format(recebidos)
+                            val descricaoAlerta = "Alerta: Rede Recebida $tipo do limite ($limite): Valor registrado: %.2f MB".format(recebidos)
                             if (networkData.inserirAlerta(descricaoAlerta, idCapturaRecebidos, fkLinha, fkComponenteRecebidos, fkDispositivo)) {
                                 println("Alerta inserido: $descricaoAlerta")
                             } else {
@@ -76,7 +83,7 @@ open class Main {
                     val limitesEnviados = networkData.buscarLimites(fkComponenteEnviados, fkDispositivo, fkLinha)
                     for ((tipo, limite) in limitesEnviados) {
                         if ((tipo == "acima" && enviados > limite) || (tipo == "abaixo" && enviados < limite)) {
-                            val descricaoAlerta = "Alerta: RedeEnviada $tipo do limite ($limite): Valor registrado: %.2f MB".format(enviados)
+                            val descricaoAlerta = "Alerta: Rede Enviada $tipo do limite ($limite): Valor registrado: %.2f MB".format(enviados)
                             if (networkData.inserirAlerta(descricaoAlerta, idCapturaEnviados, fkLinha, fkComponenteEnviados, fkDispositivo)) {
                                 println("Alerta inserido: $descricaoAlerta")
                             } else {
@@ -104,12 +111,35 @@ open class Main {
                 println("-------------------------------------------------------------------------------------------------------------------")
                 println("| ID Alerta | Captura ID | Data                | Descrição                                                        |")
                 println("-------------------------------------------------------------------------------------------------------------------")
-                val alertas = networkData.listarAlertas()
+                val alertas = networkData.listarAlertas(fkDispositivo)
+
+                val dateFormatter = SimpleDateFormat("dd-MM-yyyy HH:mm:ss")
+                val dateParser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss")
+
                 alertas.forEach { alerta ->
-                    println("| ${alerta.idAlerta.toString().padEnd(10)} | ${alerta.fkCaptura.toString().padEnd(10)} | ${alerta.dataAlerta.toString().padEnd(18)} | ${alerta.descricao.toString().padEnd(30)} | Linha: ${alerta.fkLinha}")
+
+                    val dataFormatada = try {
+                        val data = dateParser.parse(alerta.dataAlerta.toString())
+                        dateFormatter.format(data)
+                    } catch (e: Exception) {
+                        alerta.dataAlerta.toString()
+                    }
+
+
+                    val mensagem = JSONObject().apply {
+                        put("text",             """
+                    :rotating_light: *ALERTA DETECTADO!*
+            
+                    *Descrição:* ${alerta.descricao}
+                    *Data:* $dataFormatada
+                    """.trimIndent()
+                        )
+                    }
+                    slack.enviarMensagem(mensagem)
+
+                    println("| ${alerta.idAlerta.toString().padEnd(10)} | ${alerta.fkCaptura.toString().padEnd(10)} | ${dataFormatada.padEnd(18)} | ${alerta.descricao.toString().padEnd(30)} | Linha: ${alerta.fkLinha}")
                 }
                 println("-------------------------------------------------------------------------------------------------------------------\n")
-
 
                 Thread.sleep(30000)
             }

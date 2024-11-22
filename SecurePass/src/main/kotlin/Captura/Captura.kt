@@ -22,6 +22,9 @@ class Alerta {
     var idAlerta: Int = 0
     var fkCaptura: Int = 0
     var fkLinha: Int = 0
+    var fkComponente: Int = 0
+    var fkDispositivo: Int = 0
     var dataAlerta: LocalDateTime = LocalDateTime.now()
     var descricao: String = ""
+    var visualizacao: Boolean = false
 }
