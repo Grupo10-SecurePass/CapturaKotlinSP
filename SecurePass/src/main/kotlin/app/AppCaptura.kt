@@ -33,23 +33,37 @@ open class Main {
 
             val fkComponenteRecebidos = networkData.buscarFkComponente("RedeRecebida")
             val fkComponenteEnviados = networkData.buscarFkComponente("RedeEnviada")
+            val fkComponentePacoteRecebido = networkData.buscarFkComponente("PacoteRecebido")
+            val fkComponentePacoteEnviado = networkData.buscarFkComponente("PacoteEnviado")
 
-            if (fkComponenteRecebidos == null || fkComponenteEnviados == null) {
-                println("Não foi possível encontrar os componentes de RedeRecebida ou RedeEnviada.")
+            if (fkComponenteRecebidos == null || fkComponenteEnviados == null || fkComponentePacoteRecebido == null || fkComponentePacoteEnviado == null) {
+                println("Não foi possível encontrar os componentes de RedeRecebida de RedeEnviada de Pacotes Recebidos ou Pacotes Enviados.")
                 return
             }
 
             networkData.python()
 
             while (true) {
-                val (recebidos, enviados) = networkData.getFormattedNetworkData()
+                val (recebidos, enviados, pacotesRecebidos, pacotesEnviados) = networkData.getFormattedNetworkData()
 
                 println("Mega Bytes Recebidos: %.2f MB".format(recebidos))
                 println("Mega Bytes Enviados: %.2f MB".format(enviados))
+                println("Pacotes Enviados: ${pacotesEnviados}")
+                println("Pacote Recebidos: ${pacotesRecebidos}")
 
                 // Inserindo dados de Rede Recebida
                 val novoRegistroRecebidos = Captura()
                 novoRegistroRecebidos.setRegistro(recebidos.toFloat())
+
+                val novoRegistroPacotesRecebidos = Captura()
+                novoRegistroPacotesRecebidos.setRegistro(pacotesRecebidos.toFloat())
+
+                networkData.inserir(novoRegistroPacotesRecebidos, fkDispositivo, fkLinha, "PacoteRecebido")
+
+                val novoRegistroPacotesEnviados = Captura()
+                novoRegistroPacotesEnviados.setRegistro(pacotesEnviados.toFloat())
+
+                networkData.inserir(novoRegistroPacotesEnviados, fkDispositivo, fkLinha, "PacoteEnviado")
 
                 val idCapturaRecebidos = networkData.inserir(novoRegistroRecebidos, fkDispositivo, fkLinha, "RedeRecebida")
 

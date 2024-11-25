@@ -3,6 +3,7 @@ package SecurePass
 import Captura.Alerta
 import Captura.Captura
 import com.github.britooo.looca.api.core.Looca
+import com.google.common.graph.Network
 import org.apache.commons.dbcp2.BasicDataSource
 import org.springframework.jdbc.core.BeanPropertyRowMapper
 import org.springframework.jdbc.core.JdbcTemplate
@@ -12,6 +13,12 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 data class DispositivoData(val fkLinha: Int, val idDispositivo: Int)
+data class NetworkData(
+    val megabytesRecebidos: Double,
+    val megabytesEnviados: Double,
+    val pacotesRecebidos: Long,
+    val pacotesEnviados: Long
+)
 
 class SecurePass {
 
@@ -65,14 +72,17 @@ class SecurePass {
     }
 
     // Retorna os dados de rede formatados em megabytes
-    fun getFormattedNetworkData(): Pair<Double, Double> {
+    fun getFormattedNetworkData():  NetworkData {
         val bytesRecebidos = looca.rede.grupoDeInterfaces.interfaces[0].bytesRecebidos
         val bytesEnviados = looca.rede.grupoDeInterfaces.interfaces[0].bytesEnviados
+        val pacotesEnviados = looca.rede.grupoDeInterfaces.interfaces[0].pacotesEnviados
+        val pacotesRecebidos = looca.rede.grupoDeInterfaces.interfaces[0].pacotesRecebidos
 
         val megabytesRecebidos = bytesRecebidos / (1024.0 * 1024.0)
         val megabytesEnviados = bytesEnviados / (1024.0 * 1024.0)
 
-        return Pair(megabytesRecebidos, megabytesEnviados)
+
+        return NetworkData(megabytesRecebidos, megabytesEnviados, pacotesRecebidos, pacotesEnviados)
     }
 
     // Inserção de registro na tabela `captura`
@@ -129,29 +139,33 @@ class SecurePass {
     }
 
     fun listarCapturas(): List<Captura> {
-        val sql = "SELECT * FROM captura WHERE TIME(dataRegistro) = TIME(NOW()) ORDER BY dataRegistro DESC;"
+        val sql = "SELECT * \n" +
+                "FROM captura \n" +
+                "WHERE dataRegistro >= DATE_SUB(NOW(), INTERVAL 1 MINUTE) \n" +
+                "ORDER BY dataRegistro DESC;\n"
         return jdbcTemplate.query(sql, BeanPropertyRowMapper(Captura::class.java))
     }
 
     fun listarAlertas(idDispositivo: Int): List<Alerta> {
         val sql = """
-        SELECT 
-        idAlerta, 
-        fkCaptura, 
-        dataAlerta, 
-        descricao, 
-        fkLinha, 
-        fkComponente, 
-        fkDispositivo, 
-        visualizacao 
-        FROM 
-        alerta 
-        WHERE 
-        fkDispositivo = ? 
-        AND visualizacao = 0
-        AND TIME(dataAlerta) = TIME(NOW())
-        ORDER BY 
-        dataAlerta DESC;
+       SELECT 
+    idAlerta, 
+    fkCaptura, 
+    dataAlerta, 
+    descricao, 
+    fkLinha, 
+    fkComponente, 
+    fkDispositivo, 
+    visualizacao 
+FROM 
+    alerta 
+WHERE 
+    fkDispositivo = ? 
+    AND visualizacao = 0
+    AND dataAlerta >= DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+ORDER BY 
+    dataAlerta DESC;
+
     """
         return jdbcTemplate.query(
             sql,
