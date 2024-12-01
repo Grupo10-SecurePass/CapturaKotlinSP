@@ -29,7 +29,7 @@ class SecurePass {
     fun configurar() {
         val datasource = BasicDataSource()
         datasource.driverClassName = "com.mysql.cj.jdbc.Driver"
-        datasource.url = "jdbc:mysql://3.83.176.75:3306/securepass?serverTimezone=America/Sao_Paulo"
+        datasource.url = "jdbc:mysql://3.81.255.141:3306/securepass?serverTimezone=America/Sao_Paulo"
         datasource.username = "root"
         datasource.password = "urubu100"
 
