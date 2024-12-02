@@ -14,7 +14,7 @@ open class Main {
         fun main(args: Array<String>) {
 
             // Link do Slack precisa ser colocado na val abaixo
-            val slack = Slack("")
+            val slack = Slack("https://hooks.slack.com/services/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")
 
             val networkData = SecurePass()
             networkData.configurar()
@@ -40,8 +40,6 @@ open class Main {
                 println("Não foi possível encontrar os componentes de RedeRecebida de RedeEnviada de Pacotes Recebidos ou Pacotes Enviados.")
                 return
             }
-
-            networkData.python()
 
             while (true) {
                 val (recebidos, enviados, pacotesRecebidos, pacotesEnviados) = networkData.getFormattedNetworkData()

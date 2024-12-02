@@ -52,14 +52,6 @@ class SecurePass {
             .firstOrNull()
     }
 
-    // Método para executar um script Python
-    fun python() {
-        try {
-            Runtime.getRuntime().exec("python3 CapturaPythonSP/main.py")
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
 
     // Busca o ID do componente pelo nome
     fun buscarFkComponente(nome: String): Int? {
