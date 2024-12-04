@@ -14,7 +14,7 @@ open class Main {
         fun main(args: Array<String>) {
 
             // Link do Slack precisa ser colocado na val abaixo
-            val slack = Slack("https://hooks.slack.com/services/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")
+            val slack = Slack("https://hooks.slack.com/services/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")
 
             val networkData = SecurePass()
             networkData.configurar()
